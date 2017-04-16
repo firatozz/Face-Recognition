@@ -1,0 +1,5 @@
+COM
+9600
+1
+True
+True
