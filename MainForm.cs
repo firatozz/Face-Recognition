@@ -43,12 +43,12 @@ namespace YuzTanima
             
   
             InitializeComponent();
-            //Yüz Algılama için haarcascade yükleme
+            //Installing haarcascade for Face Detection
             face = new HaarCascade("haarcascade_frontalface_default.xml");
            // eye = new HaarCascade("haarcascade_eye.xml");
             try
             {
-                //Her resim için bir önceki öğrenilmiş yüzleri etiketleme 
+                //Labeling previously learned faces for each image
                 string isimEtiketBilgi = File.ReadAllText(Application.StartupPath + "/EgitilmisYuzler/EgitilmisEtiketler.txt");
                 string[] isimEtiketleri = isimEtiketBilgi.Split('%');
                 NumEtikets = Convert.ToInt16(isimEtiketleri[0]);
@@ -74,8 +74,8 @@ namespace YuzTanima
 
         private void button1_Click(object sender, EventArgs e)
         {
-            //combobox ta seçilecek kamerayı ayarla        
-            //Görüntü Yakalama Başlatılıyor.
+            //set camera to select in combobox       
+            //Starting Image Capture.
             grabber = new Capture(KameraIndex);
             grabber.QueryFrame();
             //FrameGraber(yüz yakalama) olayı başlatılıyor.
@@ -93,13 +93,13 @@ namespace YuzTanima
         {
             try
             {
-                //Eğitimli yüz sayacı
+                //Trained face counter
                 sayac = sayac + 1;
 
-                //Yakalanan resmi griye çevirme
+                //Turn captured image gray
                 gri = grabber.QueryGrayFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
 
-                //Yüz Algılayıcı
+                //Face Detector
                 MCvAvgComp[][] yuz_Algilama = gri.DetectHaarCascade(
                 face,
                 1.1,
@@ -107,26 +107,25 @@ namespace YuzTanima
                 Emgu.CV.CvEnum.HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
                 new Size(20, 20));
 
-                //Farklı yüzleri yakalama.
+                //Capturing different faces.
                 foreach (MCvAvgComp f in yuz_Algilama[0])
                 {
                     egitimliYuz = gecerliKare.Copy(f.rect).Convert<Gray, byte>();
                     break;
                 }
 
-                // kübik kuvvet interpolasyon tipi yöntemi ile görüntüyü aynı boyutla karşılaştırmak için yüz algılandığında 
-                //görüntüyü yeniden boyutlandırma.
+                // Resize image when face is detected to compare image with same size by cubic force interpolation type method.
                 egitimliYuz = sonucResim.Resize(100, 100, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
                 egitimliResimler.Add(egitimliYuz);
                 etiketler.Add(textBox1.Text);
 
-                //Gri resmi gösterme
+                //Showing gray
                 imageBox1.Image = egitimliYuz;
 
-                //Eğitilmiş yüzleri text dosyasında numaralandırma
+                //Enumerate trained faces in a text file
                 File.WriteAllText(Application.StartupPath + "/EgitilmisYuzler/EgitilmisEtiketler.txt", egitimliResimler.ToArray().Length.ToString() + "%");
 
-                //Eğitilmiş yüzleri text dosyasında etiketlerini yazdırma
+                //labels of trained faces in text file
                 for (int i = 1; i < egitimliResimler.ToArray().Length + 1; i++)
                 {
                     egitimliResimler.ToArray()[i - 1].Save(Application.StartupPath + "/EgitilmisYuzler/face" + i + ".bmp");
@@ -148,14 +147,13 @@ namespace YuzTanima
             //label4.Text = "";
             KisiAdlari.Add("");
 
-            //Uygulamada en sık hatalarla karşılaşılan kısım
-            //Yakalama aygıtından geçerli kareyi alma
+            //Getting the current frame from the capture device
             gecerliKare = grabber.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
 
             //Gri Seviyeye Çevirme
             gri = gecerliKare.Convert<Gray, Byte>();
 
-            //Yüz Algılayıcı
+            //Face detector
             MCvAvgComp[][] yuz_Algilama = gri.DetectHaarCascade(
           face,
           1.2,
@@ -163,21 +161,21 @@ namespace YuzTanima
           Emgu.CV.CvEnum.HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
           new Size(20, 20));
 
-            //Farklı yüzleri algılama
+            //Detecting different faces
             foreach (MCvAvgComp f in yuz_Algilama[0])
             {
                 t = t + 1;
                 sonucResim = gecerliKare.Copy(f.rect).Convert<Gray, byte>().Resize(100, 100, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
-                //mavi renk ile 0. (gri) kanal tespit edilen yüzü çizme
+                //drawing face with 0th (grey) channel detected with blue color
                 gecerliKare.Draw(f.rect, new Bgr(Color.Red), 2);
 
 
                 if (egitimliResimler.ToArray().Length != 0)
                 {
-                    //Maksimum İterasyon gibi eğitilmiş görüntülerin numaraları ile yüz tanıma (termCritaria)
+                    //Face recognition (termCriteria) with numbers of trained images such as Maximum Iteration
                     MCvTermCriteria termCrit = new MCvTermCriteria(sayac, 0.001);
 
-                    //Eigen yüz tanıyıcı
+                    //Eigen face recognizer
                     EigenObjectRecognizer taniyici = new EigenObjectRecognizer(
                        egitimliResimler.ToArray(),
                        etiketler.ToArray(),
@@ -187,7 +185,7 @@ namespace YuzTanima
                     isim = taniyici.Recognize(sonucResim);
                    // richTextBox1.Text += label4.Text+"  'yüzü tanındı." + "  " + DateTime.Today + "  " + DateTime.Now.ToLongTimeString() + Environment.NewLine;
 
-                    //Her algılanan yüz için etiket çizme
+                    //Drawing labels for each detected face
                     gecerliKare.Draw(isim, ref font, new Point(f.rect.X - 2, f.rect.Y - 2), new Bgr(Color.LightGreen));
 
                     
@@ -197,46 +195,26 @@ namespace YuzTanima
                 KisiAdlari.Add("");
 
 
-                //sahnede algılanan yüzlerin sayısını belirleme
+                //determining the number of faces detected in the scene
                 label3.Text = yuz_Algilama[0].Length.ToString();
-
-                /*
-                       //yüzündeki ilgili bölgeyi ayarlayın
-                        
-                       gray.ROI = f.rect;
-                       MCvAvgComp[][] eyesDetected = gray.DetectHaarCascade(
-                          eye,
-                          1.1,
-                          10,
-                          Emgu.CV.CvEnum.HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
-                          new Size(20, 20));
-                       gray.ROI = Rectangle.Empty;
-
-                       foreach (MCvAvgComp ey in eyesDetected[0])
-                       {
-                           Rectangle eyeRect = ey.rect;
-                           eyeRect.Offset(f.rect.X, f.rect.Y);
-                           currentFrame.Draw(eyeRect, new Bgr(Color.Blue), 2);
-                       }
-                        */
             }
             t = 0;
 
-            //tanınan kişilerin isimlerini birleştirme 
+            //combining the names of well-known people
             for (int nnn = 0; nnn < yuz_Algilama[0].Length; nnn++)
             {
                 isimler = isimler + KisiAdlari[nnn] + ", ";
             }
-            //İşlenmiş ve tanınmış yüzleri göster
+            //Show rendered and recognized faces
             imageBoxFrameGrabber.Image = gecerliKare;
             label4.Text = isimler;
             isimler = "";
-            //İsimler Listesini Temizle
+            //Clear Name List
             KisiAdlari.Clear();
 
             if (String.IsNullOrEmpty(isimler))
             {
-                //hiçbirşey
+                return;
             }
             else
             {
@@ -245,15 +223,13 @@ namespace YuzTanima
             }
 
             //
-            //otomatik olarak adını gönderir - Etkin veya devredışı olabilir.
+            //automatically sends its name - Can be enabled or disabled.
             //
             tbLog.Text = "\"" + isimler + "\"";
             
-            //btngetX.PerformClick(); 
-            //tanıma duruncaya kadar sadece çalışır - EZ-Builder bilgi alır
-            //Bir sonraki yüz tanınması için isim değerini temizler
+           
             isimler = "";
-            //İsimler Listesini temizler
+            //Clear Name Lis
             KisiAdlari.Clear();
             
           
@@ -310,8 +286,8 @@ namespace YuzTanima
             button1.Enabled = true;
             btn_stop_capture.Enabled = false;
             groupBox1.Enabled = false;
-            imageBoxFrameGrabber.Image = null;  //ImageBox daki yüz çerçevesi (kare) temizlenir.
-            imageBox1.Image = null; // ImageBox boş hale getirilir.
+            imageBoxFrameGrabber.Image = null;  //The face frame (square) in the ImageBox is cleared.
+            imageBox1.Image = null; // The ImageBox is made empty.
         }
 
 
@@ -369,7 +345,7 @@ namespace YuzTanima
 
         private void viewLogOfDetectedFacesToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (File.Exists(Application.StartupPath + "/RecognitionLog/facelog.txt")) //bin-debug içinde log kayıtlarının tutuldugu klasör yolu ve txt
+            if (File.Exists(Application.StartupPath + "/RecognitionLog/facelog.txt")) //The path to the folder where the log records are kept in bin-debug and txt
             {
                 System.Diagnostics.Process.Start(Application.StartupPath + "/RecognitionLog/facelog.txt");
             }
@@ -390,7 +366,7 @@ namespace YuzTanima
                 var boyut = fi.Length;
                 lb_facename_file.Text = "Face Log File size:          " + boyut;
 
-                if (boyut > 1000000) //Dosya 1 mb'dan büyük  ise silinecektir
+                if (boyut > 1000000) //If the file is larger than 1 mb it will be deleted
                 {
                     File.Delete(Application.StartupPath + "/RecognitionLog/facelog.txt");
                 }
@@ -399,17 +375,17 @@ namespace YuzTanima
 
         private void cbCamIndex_SelectedIndexChanged(object sender, EventArgs e)
         {
-            //-> combobox'tan seçili öğeyi alır
+            //-> selected item from combobox
              KeyValuePair<int, string> SelectedItem = (KeyValuePair<int, string>)cbCamIndex.SelectedItem;
-            //-> Seçilen kamera belirtilen değişkene atanır.
+            //-> The selected camera is assigned to the specified variable.
             KameraIndex = SelectedItem.Key;
         }
 
         private void btn_refresh_camerlist_Click(object sender, EventArgs e)
         {
-            //-> Combobox'ta kameraları liste halinde tutma
+            //-> Keeping cameras listed in Combobox
             List<KeyValuePair<int, string>> ListCamerasData = new List<KeyValuePair<int, string>>();
-            //-> Sistem kameralarını  DirectShow.Net dll  ile bulma
+            //-> Finding system cameras with DirectShow.Net dll
             DsDevice[] _SystemCamereas = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
             int _DeviceIndex = 0;
             foreach (DirectShowLib.DsDevice _Camera in _SystemCamereas)
@@ -417,10 +393,10 @@ namespace YuzTanima
                 ListCamerasData.Add(new KeyValuePair<int, string>(_DeviceIndex, _Camera.Name));
                 _DeviceIndex++;
             }
-            //-> combobox  temizleme
+            //-> clear combobox
                 cbCamIndex.DataSource = null;
                 cbCamIndex.Items.Clear();
-            //-> combobox yükleme
+            //-> upload combobox
                 cbCamIndex.DataSource = new BindingSource(ListCamerasData, null);
                 cbCamIndex.DisplayMember = "Value";
                 cbCamIndex.ValueMember = "Key";
@@ -428,7 +404,7 @@ namespace YuzTanima
         }
         private void kameraotomatikcalistirmaKapat_Click(object sender, EventArgs e)
         {
-            // Kamera otomatik çalıştırmayı kapat - menü işlemini gerçekleştirir.
+            // Turn off camera autorun - performs the menu operation.
             CamAuto = false;
             lb_autorun.Text = "Pasif";
             MessageBox.Show("Unutmayın, tüm kullanıcı ayarlarının doğru değerlere sahip olduğundan emin olun. - Daha sonra Dosya/Kullanıcı Ayarlarını Kaydet yolunu takip edin.", "Yüz Tanıma", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
@@ -436,7 +412,7 @@ namespace YuzTanima
        
         private void kameraotomatikcalistirmaAyarla_Click(object sender, EventArgs e)
         {
-            //Kamerayı otomatik çalıştırmaya ayarla - mennü işlemini  gerçeklştirir.
+            //Turn on camera autorun - performs the menu operation.
             CamAuto = true;
             lb_autorun.Text = "Etkin";
             MessageBox.Show("Unutmayın, tüm kullanıcı ayarlarının doğru değerlere sahip olduğundan emin olun. - Daha sonra Dosya/Kullanıcı Ayarlarını Kaydet yolunu takip edin.", "Yüz Tanıma", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
